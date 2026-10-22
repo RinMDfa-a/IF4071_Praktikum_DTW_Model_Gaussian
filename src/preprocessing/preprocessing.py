@@ -7,6 +7,7 @@ class PreprocessExtractor:
     def __init__(self, path="./audio/"):
         self.path = path
         self.winstep = 0.01
+        self.winlen = 0.025
         self.x = []
         self.y = []
     
@@ -23,7 +24,7 @@ class PreprocessExtractor:
     
     def mfcc_extractor(self, audio, sr):
         """Mengextrasi fitur MFCC dari sampel audio"""
-        mfcc_features = mfcc(audio, sr)
+        mfcc_features = mfcc(audio, sr, winlen = self.winlen, winstep=self.winstep)
         mfcc_delta = delta(mfcc_features, 2)
         mfcc_delta_delta = delta(mfcc_delta, 2)
         mfcc_stacked = np.hstack((mfcc_features, mfcc_delta, mfcc_delta_delta))
@@ -66,8 +67,10 @@ class PreprocessExtractor:
                     self.x.append(normalized_features)
                     self.y.append(vowel)
                     
-                    print(f"Processed file: {file_path}, MFCC shape: {normalized_features.shape}")
-                    
+                    num_frames = normalized_features.shape[0]
+                    duration = self.get_duration(num_frames)
+                    print(f"Processed file: {file_path}, MFCC shape: {normalized_features.shape}, Duration: {duration:.2f} seconds")
+    
     def get_dtw_samples(self):
         """Mengambil sampel untuk Dynamic Time Warping (DTW)"""
         return self.x, self.y
@@ -77,9 +80,21 @@ class PreprocessExtractor:
         x_avg = [np.mean(sample, axis=0) for sample in self.x]
         return np.array(x_avg), np.array(self.y)
 
+    def save_samples(self, x, y):
+        """Menyimpan sampel yang telah diproses ke file npz"""
+        x_array = np.array(x, dtype=object)
+        y_array = np.array(y)
+        file_name = "preprocessed_extracted_samples.npz"
+        file_path = os.path.join(self.path, file_name)
+        np.savez(file_path, x=x_array, y=y_array, winlen=self.winlen, winstep=self.winstep)
+        print(f"Samples saved to {file_path}")
+
 preprocess_extractor = PreprocessExtractor()
 preprocess_extractor.preprocess_extract_pipeline()
-print(f"Duration of first sample: {preprocess_extractor.get_duration(len(preprocess_extractor.x)):.2f} seconds")
+first_sample_frames = preprocess_extractor.x[0].shape[0]
+print(f"Duration of first sample: {preprocess_extractor.get_duration(first_sample_frames):.2f} seconds")
 
-timestamps = preprocess_extractor.get_time_axis(len(preprocess_extractor.x))
+timestamps = preprocess_extractor.get_time_axis(first_sample_frames)
 print(f"The 10th frame happened at exactly {timestamps[9]} seconds.")
+
+preprocess_extractor.save_samples(preprocess_extractor.x, preprocess_extractor.y)
