@@ -181,15 +181,15 @@ if __name__ == "__main__":
     X = data['x']
     y = data['y']
 
-    X_a = X[y == 'a']
+    X_a = X[y == 'A']
     X_e = X[y == 'e']
     X_i = X[y == 'i']
     X_o = X[y == 'o']
     X_u = X[y == 'u']
 
-    print(len(X))
+    print(len(X_a))
 
-    dtw_a_template = DynamicTimeWarping(X, mode="DBA")
+    dtw_a_template = DynamicTimeWarping(X_a, mode="DBA")
     dtw_a_template.fit(max_iter=10)
 
     print(dtw_a_template.template)
