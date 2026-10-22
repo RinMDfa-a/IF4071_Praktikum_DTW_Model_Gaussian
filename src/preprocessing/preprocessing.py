@@ -98,3 +98,17 @@ timestamps = preprocess_extractor.get_time_axis(first_sample_frames)
 print(f"The 10th frame happened at exactly {timestamps[9]} seconds.")
 
 preprocess_extractor.save_samples(preprocess_extractor.x, preprocess_extractor.y)
+
+data = np.load("./audio/preprocessed_extracted_samples.npz", allow_pickle=True)
+X = data['x']
+y = data['y']
+
+X_a = X[y == 'a']
+X_e = X[y == 'e']
+X_i = X[y == 'i']
+X_o = X[y == 'o']
+X_u = X[y == 'u']
+
+print(f"Total 'a' samples available for DTW templates: {len(X_a)}")
+template_a = X_a[0]
+print(template_a)
