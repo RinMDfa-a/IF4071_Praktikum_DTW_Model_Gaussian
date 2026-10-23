@@ -1,7 +1,9 @@
 import random
 from typing import Literal
 
+import matplotlib.pyplot as plt
 import numpy as np
+from seaborn import heatmap
 
 
 class DynamicTimeWarping:
@@ -167,14 +169,30 @@ class DynamicTimeWarping:
         """Calculate the distance between 2 mfcc sequence using euclidean"""
         return np.linalg.norm(seqA - seqB)
 
-    def model(self, input: np.ndarray) -> float:
+    def display_dtw_path(self, path: list[tuple[int, int]]) -> None:
+        """Outputs a graph that displays the path of the DTW between the template and the input on the delta matrix"""
+        ax = heatmap(data=self.delta_matrix, linewidths=.5)
+        ax.plot([m + 0.5 for _, m in path],
+                [n + 0.5 for n, _ in path],
+                color="white",
+                marker="^",
+                label="Alignment Path")
+        plt.legend()
+        plt.show()
+
+    def display_matrix(self, matrix: np.ndarray) -> None:
+        """Outputs a display matrix that displays a value in each of the grid"""
+        heatmap(data=matrix, linewidths=.5)
+        plt.show()
+
+    def model(self, input: np.ndarray) -> tuple[float, list[tuple[int, int]]]:
         """Initiate modelling comparison for the input mfcc against the existing templates"""
 
-        cost_matrix = self._fill_cost_matrix(self.ref_sample, input)
-        delta_matrix = self._fill_delta_matrix(cost_matrix)
-        score, _ = self._dtw_alignment(delta_matrix)
+        self.cost_matrix = self._fill_cost_matrix(self.ref_sample, input)
+        self.delta_matrix = self._fill_delta_matrix(self.cost_matrix)
+        score, path_alingment = self._dtw_alignment(self.delta_matrix)
 
-        return score
+        return score, path_alingment
 
 if __name__ == "__main__":
     data = np.load("../../audio/preprocessed_extracted_samples.npz", allow_pickle=True)
@@ -182,14 +200,33 @@ if __name__ == "__main__":
     y = data['y']
 
     X_a = X[y == 'A']
-    X_e = X[y == 'e']
-    X_i = X[y == 'i']
-    X_o = X[y == 'o']
-    X_u = X[y == 'u']
+    X_e = X[y == 'E']
+    X_i = X[y == 'I']
+    X_o = X[y == 'O']
+    X_u = X[y == 'U']
 
     print(len(X_a))
 
     dtw_a_template = DynamicTimeWarping(X_a, mode="DBA")
-    dtw_a_template.fit(max_iter=10)
+    dtw_a_template.fit(max_iter=5)
 
-    print(dtw_a_template.template)
+    dtw_e_template = DynamicTimeWarping(X_e, mode="DBA")
+    dtw_e_template.fit(max_iter=5)
+
+    print(dtw_a_template.model(X_a[0])[0])
+    print(dtw_a_template.model(X_e[0])[0])
+    print(dtw_a_template.model(X_i[0])[0])
+    print(dtw_a_template.model(X_o[0])[0])
+    print(dtw_a_template.model(X_u[0])[0])
+
+    print(dtw_e_template.model(X_a[0])[0])
+    print(dtw_e_template.model(X_e[0])[0])
+    print(dtw_e_template.model(X_i[0])[0])
+    print(dtw_e_template.model(X_o[0])[0])
+    print(dtw_e_template.model(X_u[0])[0])
+
+    dtw_a_template.display_matrix(dtw_a_template.delta_matrix)
+    dtw_a_template.display_dtw_path(dtw_a_template.model(X_a[0])[1])
+
+    dtw_e_template.display_matrix(dtw_e_template.delta_matrix)
+    dtw_e_template.display_dtw_path(dtw_e_template.model(X_e[0])[1])
