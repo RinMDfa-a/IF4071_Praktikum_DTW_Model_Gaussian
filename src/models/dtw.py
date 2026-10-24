@@ -1,5 +1,4 @@
 import os
-import random
 from typing import Literal
 
 import matplotlib.pyplot as plt
@@ -18,7 +17,7 @@ class DynamicTimeWarping:
     def fit(self, max_iter: int | None = None) -> None:
         """Creates the template"""
         if self.mode == "DBA" and (max_iter == None):
-            raise Exception.args("Type DBA needs iteration and threshold to be explicitly set")
+            raise ValueError("Type DBA needs iteration to be explicitly set")
 
         self.max_iter = max_iter
         self._align_samples()
@@ -47,10 +46,6 @@ class DynamicTimeWarping:
         """Returns the total score of DTWs calculations"""
         score = 0
         for sample in samples:
-            # cost_matrix = self._fill_cost_matrix(sample, curr_sample)
-            # delta_matrix = self._fill_delta_matrix(cost_matrix)
-            # score += delta_matrix[sample.shape[0] - 1, curr_sample.shape[0] - 1]
-
             cost_matrix = self._fill_cost_matrix(curr_sample, sample)
             delta_matrix = self._fill_delta_matrix(cost_matrix)
             score += delta_matrix[curr_sample.shape[0] - 1, sample.shape[0] - 1]
@@ -138,7 +133,6 @@ class DynamicTimeWarping:
             if (N > 0 and M > 0):
                 moves = {
                     (N - 1, M - 1): delta_matrix[N - 1, M - 1], # diagonal
-                    # (N - 1, M): delta_matrix[N - 1, M], # vertical
                     (N, M - 1): delta_matrix[N, M - 1] # horizontal
                 }
 
@@ -168,10 +162,10 @@ class DynamicTimeWarping:
         M = cost_matrix.shape[1]
 
         # The rules strictly states that a cell can progress to the next cell by going
-        # horizontally, diagonally, and vertically. So that gives 2 implications for the 
-        # first row and the first column.
+        # horizontally, diagonally, and skipping 2 vertical on the next sample. So that gives 2 implications for the 
+        # first row and the first column. (Trellis path)
         # 1. The first row can only be accessed horizontally
-        # 2. The first column can only be accesed vertically
+        # 2. The first column cannot be accessed because there are no vertical movement 
 
         # P[i, j] = min(P[i, j-1], P[i-1, j-1], P[i-2, j-1]) + C[i, j]
         # i: frame template, j: frame input. 
@@ -180,21 +174,25 @@ class DynamicTimeWarping:
 
         # Fill the rows
         for i in range(1, N):
-            # delta_matrix[i, 0] = delta_matrix[i - 1, 0] + cost_matrix[i, 0]
             delta_matrix[i, 0] = np.inf
 
-        # Fill the columns
-        for i in range(1, M):
-            delta_matrix[0, i] = delta_matrix[0, i - 1] + cost_matrix[0, i]
-
         # Fill remainings
-        for i in range(1, N):
+        for i in range(N):
             for j in range(1, M):
+                # Every single move on a column (M) can acquire max 2 vertical moves
+                # so that means if the target row (N) is bigger than the 
+                # remaining cols, its not possible to reach N from (i, j) so set it to np.inf
+                remaining_rows = (N - 1) - i
+                remaining_cols = (M - 1) - j
+
+                if remaining_rows > 2 * remaining_cols:
+                    delta_matrix[i, j] = np.inf
+                    continue 
+
                 delta_matrix[i, j] = cost_matrix[i, j] + min(
-                   # delta_matrix[i - 1, j], # Vertical
-                   delta_matrix[i, j - 1], # Horizontal
-                   delta_matrix[i - 1, j - 1], # Diagonal
-                   delta_matrix[i - 2, j - 1] if i >= 2 else np.inf # Skip
+                    delta_matrix[i, j - 1], # Horizontal
+                    delta_matrix[i - 1, j - 1], # Diagonal
+                    delta_matrix[i - 2, j - 1] if i >= 2 else np.inf # Skip
                 )
 
         return delta_matrix
@@ -217,8 +215,6 @@ class DynamicTimeWarping:
 
     def display_dtw_path(self, path: list[tuple[int, int]]) -> None:
         """Outputs a graph that displays the path of the DTW between the template and the input on the delta matrix"""
-        # ax = heatmap(data=self.delta_matrix, linewidths=.5)
-
         # inf -> nan: node tak terjangkau tampil kosong
         ax = heatmap(data=np.where(np.isinf(self.delta_matrix), np.nan, self.delta_matrix), linewidths=.5)
         ax.plot([m + 0.5 for _, m in path], # M is the input so it should be the X
@@ -231,8 +227,6 @@ class DynamicTimeWarping:
 
     def display_matrix(self, matrix: np.ndarray) -> None:
         """Outputs a display matrix that displays a value in each of the grid"""
-        # heatmap(data=matrix, linewidths=.5)
-
         # inf -> nan: node tak terjangkau tampil kosong, skala warna tidak rusak
         heatmap(data=np.where(np.isinf(matrix), np.nan, matrix), linewidths=.5)
         plt.show()
@@ -242,9 +236,9 @@ class DynamicTimeWarping:
 
         self.cost_matrix = self._fill_cost_matrix(self.ref_sample, input)
         self.delta_matrix = self._fill_delta_matrix(self.cost_matrix)
-        score, path_alingment = self._dtw_alignment(self.delta_matrix)
+        score, path_alignment = self._dtw_alignment(self.delta_matrix)
 
-        return score, path_alingment
+        return score, path_alignment
 
 
 class DTWRecognizer:
@@ -296,7 +290,7 @@ if __name__ == "__main__":
     print(len(X_a))
 
     dtw_a_template_dba = DynamicTimeWarping(X_a, mode="DBA")
-    dtw_a_template_dba.fit(max_iter=5)
+    dtw_a_template_dba.fit(max_iter=10)
 
     dtw_a_template_dtw = DynamicTimeWarping(X_a, mode="DTW")
     dtw_a_template_dtw.fit()
@@ -316,7 +310,7 @@ if __name__ == "__main__":
     print(dtw_a_template_dtw.model(X_o[0])[0])
     print(dtw_a_template_dtw.model(X_u[0])[0])
 
-    dtw_a_template_dba.display_matrix(dtw_a_template_dba.delta_matrix)
+    dtw_a_template_dba.display_matrix(dtw_a_template_dba.cost_matrix)
     dtw_a_template_dba.display_dtw_path(dtw_a_template_dba.model(X_a[0])[1])
 
     dtw_a_template_dtw.display_matrix(dtw_a_template_dtw.delta_matrix)
