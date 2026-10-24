@@ -1,3 +1,4 @@
+import os
 import random
 from typing import Literal
 
@@ -195,15 +196,18 @@ class DynamicTimeWarping:
         return score, path_alingment
 
 if __name__ == "__main__":
-    data = np.load("../../audio/preprocessed_extracted_samples.npz", allow_pickle=True)
+    # Path relatif
+    npz_path = os.path.join(os.path.dirname(__file__), "../../data/preprocessed/template_preprocessed.npz")
+    data = np.load(npz_path, allow_pickle=True)
     X = data['x']
     y = data['y']
 
-    X_a = X[y == 'A']
-    X_e = X[y == 'E']
-    X_i = X[y == 'I']
-    X_o = X[y == 'O']
-    X_u = X[y == 'U']
+    # Label: lowercase (dari nama folder data/template/<vowel>)
+    X_a = X[y == 'a']
+    X_e = X[y == 'e']
+    X_i = X[y == 'i']
+    X_o = X[y == 'o']
+    X_u = X[y == 'u']
 
     print(len(X_a))
 
