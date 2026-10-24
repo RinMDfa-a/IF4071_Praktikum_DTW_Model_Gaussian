@@ -24,7 +24,7 @@ class DynamicTimeWarping:
         self.template = self.ref_sample
 
     def _medoid(self) -> np.ndarray:
-        """Returns the seed for the first center by getting the idx of the smallest sum between the
+        """Returns the index for the first center by getting the idx of the smallest cost between the
         samples"""
 
         medoid_idx = -1
@@ -70,7 +70,7 @@ class DynamicTimeWarping:
                 n_elements[n_elements == 0] = 1
                 self.ref_sample = updated_center / n_elements[:, np.newaxis] # Enables broadcasting (100,39) (100,) -> (100, 39) (100, 1)
         else:
-            self.ref_sample = random.choice(self.samples)
+            self.ref_sample = self.samples[self._medoid()]
 
             summation_placeholder = np.zeros(self.ref_sample.shape) # Updated_center shape to match the shape of the reference
             n_elements = np.zeros(len(self.ref_sample), dtype=int) # n_elements shape to match the shape of reference.shape[0] which is the frames
@@ -172,8 +172,8 @@ class DynamicTimeWarping:
     def display_dtw_path(self, path: list[tuple[int, int]]) -> None:
         """Outputs a graph that displays the path of the DTW between the template and the input on the delta matrix"""
         ax = heatmap(data=self.delta_matrix, linewidths=.5)
-        ax.plot([m + 0.5 for _, m in path],
-                [n + 0.5 for n, _ in path],
+        ax.plot([m + 0.5 for _, m in path], # M is the input so it should be the X
+                [n + 0.5 for n, _ in path], # N is the ref so it should be the Y
                 color="white",
                 marker="^",
                 label="Alignment Path")
@@ -207,26 +207,29 @@ if __name__ == "__main__":
 
     print(len(X_a))
 
-    dtw_a_template = DynamicTimeWarping(X_a, mode="DBA")
-    dtw_a_template.fit(max_iter=5)
+    dtw_a_template_dba = DynamicTimeWarping(X_a, mode="DBA")
+    dtw_a_template_dba.fit(max_iter=5)
 
-    dtw_e_template = DynamicTimeWarping(X_e, mode="DBA")
-    dtw_e_template.fit(max_iter=5)
+    dtw_a_template_dtw = DynamicTimeWarping(X_a, mode="DTW")
+    dtw_a_template_dtw.fit()
 
-    print(dtw_a_template.model(X_a[0])[0])
-    print(dtw_a_template.model(X_e[0])[0])
-    print(dtw_a_template.model(X_i[0])[0])
-    print(dtw_a_template.model(X_o[0])[0])
-    print(dtw_a_template.model(X_u[0])[0])
+    print("DTW DBA")
+    print(dtw_a_template_dba.model(X_a[0])[0])
+    print(dtw_a_template_dba.model(X_e[0])[0])
+    print(dtw_a_template_dba.model(X_i[0])[0])
+    print(dtw_a_template_dba.model(X_o[0])[0])
+    print(dtw_a_template_dba.model(X_u[0])[0])
 
-    print(dtw_e_template.model(X_a[0])[0])
-    print(dtw_e_template.model(X_e[0])[0])
-    print(dtw_e_template.model(X_i[0])[0])
-    print(dtw_e_template.model(X_o[0])[0])
-    print(dtw_e_template.model(X_u[0])[0])
+    print("\n")
+    print("DTW")
+    print(dtw_a_template_dtw.model(X_a[0])[0])
+    print(dtw_a_template_dtw.model(X_e[0])[0])
+    print(dtw_a_template_dtw.model(X_i[0])[0])
+    print(dtw_a_template_dtw.model(X_o[0])[0])
+    print(dtw_a_template_dtw.model(X_u[0])[0])
 
-    dtw_a_template.display_matrix(dtw_a_template.delta_matrix)
-    dtw_a_template.display_dtw_path(dtw_a_template.model(X_a[0])[1])
+    dtw_a_template_dba.display_matrix(dtw_a_template_dba.delta_matrix)
+    dtw_a_template_dba.display_dtw_path(dtw_a_template_dba.model(X_a[0])[1])
 
-    dtw_e_template.display_matrix(dtw_e_template.delta_matrix)
-    dtw_e_template.display_dtw_path(dtw_e_template.model(X_e[0])[1])
+    dtw_a_template_dtw.display_matrix(dtw_a_template_dtw.delta_matrix)
+    dtw_a_template_dtw.display_dtw_path(dtw_a_template_dtw.model(X_a[0])[1])

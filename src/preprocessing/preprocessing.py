@@ -89,7 +89,7 @@ class PreprocessExtractor:
         np.savez(file_path, x=x_array, y=y_array, winlen=self.winlen, winstep=self.winstep)
         print(f"Samples saved to {file_path}")
 
-preprocess_extractor = PreprocessExtractor()
+preprocess_extractor = PreprocessExtractor(path="../../audio")
 preprocess_extractor.preprocess_extract_pipeline()
 first_sample_frames = preprocess_extractor.x[0].shape[0]
 print(f"Duration of first sample: {preprocess_extractor.get_duration(first_sample_frames):.2f} seconds")
@@ -99,7 +99,7 @@ print(f"The 10th frame happened at exactly {timestamps[9]} seconds.")
 
 preprocess_extractor.save_samples(preprocess_extractor.x, preprocess_extractor.y)
 
-data = np.load("./audio/preprocessed_extracted_samples.npz", allow_pickle=True)
+data = np.load("../../audio/preprocessed_extracted_samples.npz", allow_pickle=True)
 X = data['x']
 y = data['y']
 
