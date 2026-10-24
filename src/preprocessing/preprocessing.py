@@ -61,15 +61,16 @@ class PreprocessExtractor:
                     sr, audio = wav.read(file_path)
                     
                     audio = self.silence_trimming(audio)
+
+                    # Tanpa normalisasi per utterance: CMVN -> mean tiap utterance jadi 0 -> info vowel hilang
                     mfcc_features = self.mfcc_extractor(audio, sr)
-                    normalized_features = self.normalize_features(mfcc_features)
-                    
-                    self.x.append(normalized_features)
+
+                    self.x.append(mfcc_features)
                     self.y.append(vowel)
-                    
-                    num_frames = normalized_features.shape[0]
+
+                    num_frames = mfcc_features.shape[0]
                     duration = self.get_duration(num_frames)
-                    print(f"Processed file: {file_path}, MFCC shape: {normalized_features.shape}, Duration: {duration:.2f} seconds")
+                    print(f"Processed file: {file_path}, MFCC shape: {mfcc_features.shape}, Duration: {duration:.2f} seconds")
     
     def get_dtw_samples(self):
         """Mengambil sampel untuk Dynamic Time Warping (DTW)"""
