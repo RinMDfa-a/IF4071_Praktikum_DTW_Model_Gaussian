@@ -104,6 +104,54 @@ class Evaluator:
         table = accuracy(self.records, ["system", "scenario", "speaker"]).unstack()
         return table.round(2)
 
+    def per_speaker_scenario_tables(self):
+        """Buat satu tabel per speaker untuk skenario closed dan open (%)"""
+        systems = {
+            "DTW Template": "DTW",
+            "Model Gaussian": "Gaussian",
+        }
+        scenario_groups = {
+            "closed": {
+                "closed_recording": "Closed Recording",
+                "closed_speaker": "Closed Speakers",
+            },
+            "open": {"open_speaker": "Open"},
+        }
+        tables = {}
+
+        for group, scenarios in scenario_groups.items():
+            subset = self.records[self.records["scenario"].isin(scenarios)]
+            if subset.empty:
+                continue
+
+            scores = (
+                subset.groupby(["speaker", "system", "scenario"])["correct"]
+                .mean()
+                .mul(100)
+            )
+            table = pd.DataFrame(index=sorted(subset["speaker"].unique()))
+
+            for system, system_label in systems.items():
+                for scenario, scenario_label in scenarios.items():
+                    column = (
+                        f"{system_label} {scenario_label}"
+                        if group == "closed"
+                        else f"{system_label} Open"
+                    )
+                    try:
+                        table[column] = scores.xs(
+                            (system, scenario), level=("system", "scenario")
+                        ).reindex(table.index)
+                    except KeyError:
+                        table[column] = np.nan
+
+            table["Average"] = table.mean(axis=1)
+            average_row = table.mean(axis=0).to_frame().T
+            average_row.index = ["Average"]
+            tables[group] = pd.concat([table, average_row]).round(2)
+
+        return tables
+
     def confusion_matrices(self):
         """(sistem, skenario) -> confusion matrix (baris: label asli, kolom: prediksi)"""
         matrices = {}
@@ -123,6 +171,12 @@ class Evaluator:
         self.summary_table().to_csv(os.path.join(output_dir, "accuracy_summary.csv"))
         self.per_vowel_table().to_csv(os.path.join(output_dir, "accuracy_per_vowel.csv"))
         self.per_speaker_table().to_csv(os.path.join(output_dir, "accuracy_per_speaker.csv"))
+
+        for group, table in self.per_speaker_scenario_tables().items():
+            table.to_csv(
+                os.path.join(output_dir, f"accuracy_per_speaker_{group}.csv"),
+                index_label="Speaker",
+            )
 
         for (name, scenario), matrix in self.confusion_matrices().items():
             file_name = f"confusion_{name.lower().replace(' ', '_')}_{scenario}"
@@ -146,6 +200,9 @@ class Evaluator:
             print(self.per_vowel_table())
             print("\nTabel 3: Akurasi per speaker (%)")
             print(self.per_speaker_table())
+            for group, table in self.per_speaker_scenario_tables().items():
+                print(f"\nAkurasi per speaker - {group} (%)")
+                print(table)
             for (name, scenario), matrix in self.confusion_matrices().items():
                 print(f"\nConfusion matrix: {name} - {scenario}")
                 print(matrix)

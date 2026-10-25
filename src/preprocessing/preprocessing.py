@@ -14,7 +14,7 @@ PREPROCESSED_DIR = os.path.join(DATA_DIR, "preprocessed")
 DATASETS = {
     "template": ("template", None),
     "test_closed": ("test/closed", None),
-    "test_open": ("test/open", ["02"]), # kalau pakai semua, ubah ke None
+    "test_open": ("test/open", None),
 }
 
 class PreprocessExtractor:
