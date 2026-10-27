@@ -2,10 +2,10 @@ import numpy as np
 
 
 class GaussianModel:
-    """Model Gaussian 1 vowel: mean + full covariance dari semua frame (slide 47, 51, 52)"""
+    """Model Gaussian 1 vowel: mean + full covariance dari semua frame"""
 
     def __init__(self, eps: float = 0.0) -> None:
-        """eps: regularisasi C + eps * I, opsional kalau C singular (default 0 -> sesuai slide)"""
+        """eps: regularisasi C + eps * I, opsional kalau C singular (default 0)"""
         self.eps = eps
 
     def fit(self, samples: list[np.ndarray]) -> None:
