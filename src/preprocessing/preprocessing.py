@@ -3,13 +3,30 @@ import numpy as np
 from python_speech_features import mfcc, delta
 import scipy.io.wavfile as wav
 
+# Path: src/preprocessing/ -> root project
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+DATA_DIR = os.path.join(ROOT_DIR, "data")
+PREPROCESSED_DIR = os.path.join(DATA_DIR, "preprocessed")
+
+# Dataset:
+# nama -> (folder, take)
+# None -> semua take
+DATASETS = {
+    "template": ("template", None),
+    "test_closed": ("test/closed", None),
+    "test_open": ("test/open", None),
+}
+
 class PreprocessExtractor:
-    def __init__(self, path="./data/"):
+    def __init__(self, path="./data/", takes=None):
         self.path = path
+        self.takes = takes
         self.winstep = 0.01
         self.winlen = 0.025
         self.x = []
         self.y = []
+        self.speakers = []
+        self.files = []
     
     def silence_trimming(self, audio, threshold=0.01):
         """Menghilangkan bagian audio yang diam dari threshold tertentu"""
@@ -46,6 +63,18 @@ class PreprocessExtractor:
         """Mengembalikan sumbu waktu untuk jumlah frame tertentu"""
         return np.arange(num_frames) * self.winstep
     
+    def parse_filename(self, file):
+        """
+        Nama file -> (speaker, take)
+        contoh: G09_S02_A01.wav -> ("G09_S02", "01")
+        """
+        parts = os.path.splitext(file)[0].split("_")
+        if len(parts) != 3:
+            raise ValueError(f"Format nama file salah: {file} (harus G0X_S0Y_<V>0Z.wav)")
+
+        group, speaker, vowel_take = parts
+        return f"{group}_{speaker}", vowel_take[1:]
+
     def preprocess_extract_pipeline(self):
         """Pipeline untuk preprocess dan ekstraksi fitur dari sampel audio"""
         for vowel in sorted(os.listdir(self.path)):
@@ -56,6 +85,12 @@ class PreprocessExtractor:
             
             for file in sorted(os.listdir(folder_path)):
                 if file.endswith(".wav"):
+                    speaker, take = self.parse_filename(file)
+
+                    # Filter take
+                    if self.takes is not None and take not in self.takes:
+                        continue
+
                     file_path = os.path.join(folder_path, file)
                     
                     sr, audio = wav.read(file_path)
@@ -67,6 +102,8 @@ class PreprocessExtractor:
 
                     self.x.append(mfcc_features)
                     self.y.append(vowel)
+                    self.speakers.append(speaker)
+                    self.files.append(file)
 
                     num_frames = mfcc_features.shape[0]
                     duration = self.get_duration(num_frames)
@@ -83,47 +120,45 @@ class PreprocessExtractor:
 
     def save_samples(self, file_name):
         """Menyimpan sampel yang telah diproses ke file npz"""
-        x_array = np.array(self.x, dtype=object)
+        x_array = np.empty(len(self.x), dtype=object)
+        for i, features in enumerate(self.x):
+            x_array[i] = features
         y_array = np.array(self.y)
-        
+
         output_dir = os.path.dirname(file_name)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-            
-        np.savez(file_name, x=x_array, y=y_array, winlen=self.winlen, winstep=self.winstep)
+
+        np.savez(file_name, x=x_array, y=y_array, speaker=np.array(self.speakers), files=np.array(self.files),
+                 winlen=self.winlen, winstep=self.winstep)
         print(f"Samples saved to {file_name}")
 
-template_preprocess_extractor = PreprocessExtractor(path="./data/template/")
-template_preprocess_extractor.preprocess_extract_pipeline()
-template_preprocess_extractor.save_samples("data/preprocessed/template_preprocessed.npz")
 
-closed_preprocess_extractor = PreprocessExtractor(path="./data/test/closed/")
-closed_preprocess_extractor.preprocess_extract_pipeline()
-closed_preprocess_extractor.save_samples("data/preprocessed/test_closed_preprocessed.npz")
+def preprocess_all():
+    """Semua dataset di DATASETS: wav -> npz"""
+    for name, (folder, takes) in DATASETS.items():
+        folder_path = os.path.join(DATA_DIR, folder)
+        if not os.path.isdir(folder_path):
+            print(f"Skip {name}: {folder_path} belum ada")
+            continue
 
-# open_preprocess_extractor = PreprocessExtractor(path="./data/test/open/")
-# open_preprocess_extractor.preprocess_extract_pipeline()
-# open_preprocess_extractor.save_samples("data/preprocessed/test_open_preprocessed.npz")
+        extractor = PreprocessExtractor(path=folder_path, takes=takes)
+        extractor.preprocess_extract_pipeline()
+        if len(extractor.x) == 0:
+            print(f"Skip {name}: tidak ada file .wav")
+            continue
 
-
-first_sample_frames = template_preprocess_extractor.x[0].shape[0]
-print(f"Duration of first sample: {template_preprocess_extractor.get_duration(first_sample_frames):.2f} seconds")
-
-timestamps = template_preprocess_extractor.get_time_axis(first_sample_frames)
-print(f"The 10th frame happened at exactly {timestamps[9]} seconds.")
+        extractor.save_samples(os.path.join(PREPROCESSED_DIR, f"{name}_preprocessed.npz"))
 
 
+if __name__ == "__main__":
+    preprocess_all()
 
-data = np.load("./data/preprocessed/template_preprocessed.npz", allow_pickle=True)
-X = data['x']
-y = data['y']
+    # Cek hasil: template
+    data = np.load(os.path.join(PREPROCESSED_DIR, "template_preprocessed.npz"), allow_pickle=True)
+    X = data['x']
+    y = data['y']
+    speakers = [str(speaker) for speaker in data['speaker']]
 
-X_a = X[y == 'a']
-X_e = X[y == 'e']
-X_i = X[y == 'i']
-X_o = X[y == 'o']
-X_u = X[y == 'u']
-
-print(f"Total 'a' samples available for DTW templates: {len(X_a)}")
-template_a = X_a[0]
-print(template_a)
+    print(f"Template: {len(X)} sampel, speaker: {sorted(set(speakers))}")
+    print(f"Total 'a' samples available for DTW templates: {len(X[y == 'a'])}")
